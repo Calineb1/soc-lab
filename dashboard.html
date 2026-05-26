@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard — SIEM</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --panel-2: #0b1220;
+            --border: #334155;
+            --accent: #38bdf8;
+            --accent-2: #a78bfa;
+            --text: #e5e7eb;
+            --muted: #94a3b8;
+            --ok: #22c55e;
+            --warn: #f59e0b;
+            --err: #ef4444;
+        }
+        * { box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 { color: var(--accent); margin: 0; }
+        h2 { color: var(--accent); font-size: 14px; margin: 0 0 10px 0; letter-spacing: 0.05em; }
+
+        .topbar {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
+        }
+        .session-info { font-size: 13px; color: var(--muted); }
+        .session-info strong { color: var(--text); }
+        .logout-btn {
+            display: inline-block; padding: 6px 14px; background: var(--panel);
+            color: var(--accent); border: 1px solid var(--border); border-radius: 4px;
+            text-decoration: none; font-size: 12px;
+        }
+        .logout-btn:hover { border-color: var(--accent); }
+
+        .main-nav {
+            display: flex; gap: 6px; margin-bottom: 18px; border-bottom: 1px solid var(--border);
+        }
+        .main-nav a {
+            padding: 9px 18px; color: var(--muted); text-decoration: none;
+            font-size: 13px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+        }
+        .main-nav a:hover { color: var(--text); }
+        .main-nav a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        /* KPI cards */
+        .kpis {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        .kpi {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 14px 16px;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi::before {
+            content: '';
+            position: absolute; top: 0; left: 0; height: 2px; width: 40%;
+            background: var(--accent);
+        }
+        .kpi.kpi-critical::before { background: var(--err); }
+        .kpi.kpi-high::before     { background: var(--err); }
+        .kpi.kpi-medium::before   { background: var(--warn); }
+        .kpi.kpi-low::before      { background: var(--ok); }
+        .kpi.kpi-purple::before   { background: var(--accent-2); }
+
+        .kpi .label {
+            font-size: 10px; color: var(--muted);
+            letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 6px;
+        }
+        .kpi .value { font-size: 28px; font-weight: bold; color: var(--text); line-height: 1; }
+        .kpi .sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+        .kpi .value.err  { color: var(--err); }
+        .kpi .value.warn { color: var(--warn); }
+        .kpi .value.ok   { color: var(--ok); }
+
+        /* Charts grid */
+        .charts {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .charts-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        @media (max-width: 900px) {
+            .charts, .charts-2 { grid-template-columns: 1fr; }
+        }
+        .chart-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+        }
+        .chart-card canvas { max-height: 260px; }
+
+        /* Status pills */
+        .status-pills {
+            display: flex; gap: 10px; margin-bottom: 18px; font-size: 12px;
+        }
+        .pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--panel); border: 1px solid var(--border);
+            padding: 5px 12px; border-radius: 14px; color: var(--muted);
+        }
+        .pill .dot {
+            width: 7px; height: 7px; border-radius: 50%;
+        }
+        .pill.up .dot   { background: var(--ok);  box-shadow: 0 0 6px var(--ok); }
+        .pill.down .dot { background: var(--err); box-shadow: 0 0 6px var(--err); }
+
+        /* Recent alerts table */
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            background: var(--panel-2); color: var(--accent);
+            padding: 9px 10px; text-align: left; font-size: 12px;
+        }
+        td {
+            padding: 9px 10px; border-bottom: 1px solid var(--border);
+            font-size: 12px;
+        }
+        tr:hover { background: rgba(56,189,248,0.04); }
+        .sev-high   { color: var(--err);  font-weight: bold; }
+        .sev-medium { color: var(--warn); font-weight: bold; }
+        .sev-low    { color: var(--ok);   font-weight: bold; }
+
+        .table-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+        }
+
+        .empty {
+            color: var(--muted); font-size: 13px; padding: 30px; text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <h1>📊 SOC Overview</h1>
+    <div>
+        <span class="session-info">Signed in as <strong>{{ current_user }}</strong></span>
+        &nbsp;·&nbsp;
+        <a class="logout-btn" href="{{ url_for('logout') }}">Logout</a>
+    </div>
+</div>
+
+<nav class="main-nav">
+    <a href="{{ url_for('dashboard') }}" class="active">Dashboard</a>
+    <a href="{{ url_for('incidents') }}">Incidents</a>
+    <a href="{{ url_for('ai_analyst') }}">🤖 AI Analyst</a>
+</nav>
+
+<!-- Status pills -->
+<div class="status-pills">
+    <div class="pill {% if graylog_ok %}up{% else %}down{% endif %}">
+        <span class="dot"></span> Graylog {% if graylog_ok %}connected{% else %}offline{% endif %}
+    </div>
+    <div class="pill {% if ollama.online %}up{% else %}down{% endif %}">
+        <span class="dot"></span> Ollama {% if ollama.online %}{{ ollama.active_model }}{% else %}offline{% endif %}
+    </div>
+    <div class="pill up">
+        <span class="dot"></span> Window: last 60 min
+    </div>
+</div>
+
+<!-- KPI cards -->
+<div class="kpis">
+    <div class="kpi">
+        <div class="label">Open Incidents</div>
+        <div class="value">{{ metrics.total }}</div>
+        <div class="sub">last hour</div>
+    </div>
+    <div class="kpi kpi-critical">
+        <div class="label">Critical</div>
+        <div class="value err">{{ metrics.sev_critical }}</div>
+        <div class="sub">level ≥ 12</div>
+    </div>
+    <div class="kpi kpi-high">
+        <div class="label">High</div>
+        <div class="value err">{{ metrics.sev_high }}</div>
+        <div class="sub">level 10-11</div>
+    </div>
+    <div class="kpi kpi-medium">
+        <div class="label">Medium</div>
+        <div class="value warn">{{ metrics.sev_medium }}</div>
+        <div class="sub">level 5-9</div>
+    </div>
+    <div class="kpi kpi-low">
+        <div class="label">Low</div>
+        <div class="value ok">{{ metrics.sev_low }}</div>
+        <div class="sub">level &lt; 5</div>
+    </div>
+    <div class="kpi">
+        <div class="label">Endpoints</div>
+        <div class="value">{{ metrics.endpoints }}</div>
+        <div class="sub">unique hosts</div>
+    </div>
+    <div class="kpi kpi-purple">
+        <div class="label">Avg Risk Score</div>
+        <div class="value">{{ metrics.avg_severity }}</div>
+        <div class="sub">avg rule level</div>
+    </div>
+    <div class="kpi kpi-purple">
+        <div class="label">Top MITRE Tactic</div>
+        <div class="value" style="font-size: 16px;">{{ metrics.top_tactic }}</div>
+        <div class="sub">most observed</div>
+    </div>
+</div>
+
+<!-- Charts row 1 -->
+<div class="charts">
+    <div class="chart-card">
+        <h2>Event Trend (5-min buckets)</h2>
+        <canvas id="trendChart"></canvas>
+    </div>
+    <div class="chart-card">
+        <h2>Severity Distribution</h2>
+        <canvas id="sevChart"></canvas>
+    </div>
+</div>
+
+<!-- Charts row 2 -->
+<div class="charts-2">
+    <div class="chart-card">
+        <h2>Top Hosts by Alerts</h2>
+        <canvas id="hostsChart"></canvas>
+    </div>
+    <div class="chart-card">
+        <h2>MITRE ATT&amp;CK Tactics</h2>
+        <canvas id="tacticsChart"></canvas>
+    </div>
+</div>
+
+<!-- Recent alerts -->
+<div class="table-card">
+    <h2>Recent Alerts (10 most recent)</h2>
+    {% if recent %}
+    <table>
+        <tr>
+            <th>Time</th>
+            <th>Host</th>
+            <th>User</th>
+            <th>Event</th>
+            <th>Severity</th>
+            <th>Process</th>
+            <th></th>
+        </tr>
+        {% for a in recent %}
+        <tr>
+            <td>{{ a.timestamp }}</td>
+            <td>{{ a.host }}</td>
+            <td>{{ a.user }}</td>
+            <td title="{{ a.event }}">{{ (a.event or '')[:60] }}{% if a.event and a.event|length > 60 %}...{% endif %}</td>
+            <td>
+                {% set s = (a.severity|int) %}
+                {% if s >= 10 %}<span class="sev-high">{{ a.severity }}</span>
+                {% elif s >= 5 %}<span class="sev-medium">{{ a.severity }}</span>
+                {% else %}<span class="sev-low">{{ a.severity }}</span>{% endif %}
+            </td>
+            <td>{{ a.process }}</td>
+            <td><a href="{{ url_for('incidents') }}" style="color: var(--accent); font-size: 11px;">View →</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <div class="empty">No alerts in the last hour.</div>
+    {% endif %}
+</div>
+
+<script>
+// Chart.js global theming
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = '#334155';
+Chart.defaults.font.family = 'Arial, sans-serif';
+
+const trendLabels = {{ metrics.trend_labels|tojson }};
+const trendValues = {{ metrics.trend_values|tojson }};
+
+new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+        labels: trendLabels.length ? trendLabels : ['—'],
+        datasets: [{
+            label: 'Alerts',
+            data: trendValues.length ? trendValues : [0],
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56,189,248,0.15)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
+            pointBackgroundColor: '#38bdf8',
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, grid: { color: '#1e293b' }, ticks: { precision: 0 } },
+            x: { grid: { color: '#1e293b' } }
+        }
+    }
+});
+
+new Chart(document.getElementById('sevChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Critical', 'High', 'Medium', 'Low'],
+        datasets: [{
+            data: [
+                {{ metrics.sev_critical }},
+                {{ metrics.sev_high }},
+                {{ metrics.sev_medium }},
+                {{ metrics.sev_low }}
+            ],
+            backgroundColor: ['#ef4444', '#f97316', '#f59e0b', '#22c55e'],
+            borderColor: '#0f172a',
+            borderWidth: 2,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { padding: 12 } } }
+    }
+});
+
+const topHosts = {{ metrics.top_hosts|tojson }};
+new Chart(document.getElementById('hostsChart'), {
+    type: 'bar',
+    data: {
+        labels: topHosts.map(h => h[0]),
+        datasets: [{
+            label: 'Alerts',
+            data: topHosts.map(h => h[1]),
+            backgroundColor: 'rgba(167,139,250,0.65)',
+            borderColor: '#a78bfa',
+            borderWidth: 1,
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { beginAtZero: true, grid: { color: '#1e293b' }, ticks: { precision: 0 } },
+            y: { grid: { display: false } }
+        }
+    }
+});
+
+const tactics = {{ metrics.tactics|tojson }};
+new Chart(document.getElementById('tacticsChart'), {
+    type: 'bar',
+    data: {
+        labels: tactics.length ? tactics.map(t => t[0]) : ['No tactics detected'],
+        datasets: [{
+            label: 'Count',
+            data: tactics.length ? tactics.map(t => t[1]) : [0],
+            backgroundColor: 'rgba(56,189,248,0.65)',
+            borderColor: '#38bdf8',
+            borderWidth: 1,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, grid: { color: '#1e293b' }, ticks: { precision: 0 } },
+            x: { grid: { display: false } }
+        }
+    }
+});
+</script>
+
+</body>
+</html>

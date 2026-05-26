@@ -1,0 +1,9 @@
+{
+  "ts": "2026-05-18T17:36:39.033534Z",
+  "user": "admin",
+  "command": "Get-NetFirewallRule -DisplayName \"File and Printer Sharing (SMB-In)\" | Set-NetFirewallRule -Enabled False",
+  "incident_host": "endpoint01",
+  "incident_event": "Sysmon network connection detected",
+  "rejected": true,
+  "reason": "user rejected"
+}

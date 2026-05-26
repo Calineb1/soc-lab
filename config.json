@@ -1,0 +1,9 @@
+{
+  "ollama_model": "qwen3:8b",
+  "ollama_url": "http://localhost:11434",
+  "ollama_timeout": 300,
+  "graylog_url": "http://YOUR_GRAYLOG_SERVER/api/search/universal/relative",
+  "graylog_user": "YOUR_USERNAME",
+  "execute_enabled": false,
+  "default_alert_range": 300
+}

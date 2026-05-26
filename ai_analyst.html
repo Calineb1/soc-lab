@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Analyst — SIEM</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --panel-2: #0b1220;
+            --border: #334155;
+            --accent: #38bdf8;
+            --accent-2: #a78bfa;
+            --text: #e5e7eb;
+            --muted: #94a3b8;
+            --ok: #22c55e;
+            --warn: #f59e0b;
+            --err: #ef4444;
+        }
+        * { box-sizing: border-box; }
+        body { background: var(--bg); color: var(--text); font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: var(--accent); margin: 0; }
+        h2 { color: var(--accent); font-size: 16px; margin: 0 0 12px 0; }
+        h3 { color: var(--text); font-size: 14px; margin: 16px 0 8px 0; letter-spacing: 0.04em; }
+
+        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .session-info { font-size: 13px; color: var(--muted); }
+        .session-info strong { color: var(--text); }
+        .logout-btn {
+            display: inline-block; padding: 6px 14px; background: var(--panel);
+            color: var(--accent); border: 1px solid var(--border); border-radius: 4px;
+            text-decoration: none; font-size: 12px;
+        }
+        .logout-btn:hover { border-color: var(--accent); }
+
+        .main-nav {
+            display: flex; gap: 6px; margin-bottom: 18px; border-bottom: 1px solid var(--border);
+        }
+        .main-nav a {
+            padding: 9px 18px; color: var(--muted); text-decoration: none;
+            font-size: 13px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+        }
+        .main-nav a:hover { color: var(--text); }
+        .main-nav a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        .status-row {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px; margin-bottom: 18px;
+        }
+        .status-card {
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 6px; padding: 14px 16px;
+        }
+        .status-card .label {
+            font-size: 11px; color: var(--muted);
+            letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 6px;
+        }
+        .status-card .value { font-size: 16px; font-weight: bold; color: var(--text); }
+        .status-card .value.online { color: var(--ok); }
+        .status-card .value.offline { color: var(--err); }
+        .dot {
+            display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+            margin-right: 6px; vertical-align: middle;
+        }
+        .dot.ok { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+        .dot.err { background: var(--err); box-shadow: 0 0 8px var(--err); }
+
+        /* Tab nav */
+        .tab-nav {
+            display: flex; gap: 4px; margin-bottom: 0;
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+        }
+        .tab-btn {
+            padding: 10px 16px; background: transparent; color: var(--muted);
+            border: none; border-bottom: 2px solid transparent; margin-bottom: -1px;
+            cursor: pointer; font-family: inherit; font-size: 13px; white-space: nowrap;
+        }
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active { color: var(--accent-2); border-bottom-color: var(--accent-2); }
+
+        .tab-panel {
+            display: none; background: var(--panel); border: 1px solid var(--border);
+            border-top: none; padding: 20px; border-radius: 0 0 8px 8px;
+        }
+        .tab-panel.active { display: block; }
+
+        .btn {
+            background: var(--accent); color: var(--bg); border: none;
+            padding: 9px 16px; border-radius: 4px; font-family: inherit;
+            font-size: 13px; font-weight: bold; cursor: pointer;
+            margin-right: 6px; margin-bottom: 6px;
+        }
+        .btn:hover { background: #7dd3fc; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-secondary {
+            background: var(--panel-2); color: var(--accent); border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { background: var(--bg); border-color: var(--accent); }
+        .btn-purple { background: #4c1d95; color: #ede9fe; }
+        .btn-purple:hover { background: #6d28d9; }
+
+        select, textarea, input[type="text"], input[type="number"], input[type="url"] {
+            width: 100%; background: var(--panel-2); border: 1px solid var(--border);
+            color: var(--text); padding: 10px 12px; font-family: inherit;
+            font-size: 13px; border-radius: 4px; outline: none;
+        }
+        select:focus, textarea:focus, input:focus { border-color: var(--accent); }
+
+        .result-box {
+            background: var(--panel-2); border: 1px solid var(--border);
+            border-radius: 6px; padding: 16px; margin-top: 14px;
+            font-size: 13px; line-height: 1.6;
+            white-space: pre-wrap; word-break: break-word;
+        }
+        .result-box pre {
+            background: #020617; border: 1px solid var(--border);
+            padding: 12px; border-radius: 4px; overflow-x: auto;
+            font-size: 12px; white-space: pre-wrap;
+        }
+
+        .analysis-grid {
+            display: grid; grid-template-columns: 160px 1fr;
+            gap: 8px 14px; margin-bottom: 16px;
+        }
+        .analysis-grid .k {
+            color: var(--muted); font-size: 11px;
+            letter-spacing: 0.12em; text-transform: uppercase;
+        }
+        .severity-pill {
+            display: inline-block; padding: 3px 10px; border-radius: 12px;
+            font-size: 11px; font-weight: bold;
+        }
+        .sev-Critical, .sev-High { background: rgba(239,68,68,0.15); color: var(--err); }
+        .sev-Medium              { background: rgba(245,158,11,0.15); color: var(--warn); }
+        .sev-Low                 { background: rgba(34,197,94,0.15); color: var(--ok); }
+
+        ul.steps { margin: 4px 0; padding-left: 20px; }
+        ul.steps li { margin-bottom: 4px; }
+
+        .cmd-row {
+            display: flex; gap: 8px; align-items: stretch; margin-top: 6px;
+        }
+        .cmd-row code {
+            flex: 1; background: #020617; border: 1px solid var(--border);
+            padding: 10px 12px; border-radius: 4px;
+            font-family: 'Courier New', monospace; font-size: 12px;
+            white-space: pre-wrap; word-break: break-all;
+        }
+        .copy-btn {
+            background: var(--panel); color: var(--accent);
+            border: 1px solid var(--border); padding: 0 14px; border-radius: 4px;
+            cursor: pointer; font-family: inherit; font-size: 11px;
+        }
+        .copy-btn:hover { border-color: var(--accent); }
+
+        .action-row { display: flex; gap: 8px; margin-top: 12px; }
+        .approve { background: rgba(34,197,94,0.15); color: var(--ok); border: 1px solid var(--ok); }
+        .reject  { background: rgba(239,68,68,0.15); color: var(--err); border: 1px solid var(--err); }
+
+        /* Chat */
+        .chat-window {
+            background: var(--panel-2); border: 1px solid var(--border);
+            border-radius: 6px; padding: 14px;
+            min-height: 320px; max-height: 480px; overflow-y: auto;
+            margin-bottom: 12px;
+        }
+        .chat-msg { margin-bottom: 10px; padding: 10px 12px; border-radius: 6px; font-size: 13px; line-height: 1.5; }
+        .chat-msg.user { background: rgba(56,189,248,0.08); border-left: 2px solid var(--accent); }
+        .chat-msg.assistant { background: rgba(167,139,250,0.06); border-left: 2px solid var(--accent-2); }
+        .chat-msg .role {
+            font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+            color: var(--muted); margin-bottom: 4px;
+        }
+        .chat-input-row { display: flex; gap: 8px; }
+        .chat-input-row input { flex: 1; }
+
+        .loading { color: var(--accent-2); font-size: 13px; font-style: italic; }
+        .loading::after {
+            content: ''; display: inline-block;
+            animation: dots 1.2s steps(4, end) infinite;
+        }
+        @keyframes dots {
+            0%, 100% { content: ''; }
+            25% { content: '.'; }
+            50% { content: '..'; }
+            75% { content: '...'; }
+        }
+
+        .error-box {
+            background: rgba(239,68,68,0.08); border-left: 3px solid var(--err);
+            padding: 10px 12px; color: #fca5a5; font-size: 13px;
+            margin-top: 10px; border-radius: 3px;
+        }
+        .info-box {
+            background: rgba(245,158,11,0.08); border-left: 3px solid var(--warn);
+            padding: 10px 12px; color: #fcd34d; font-size: 13px;
+            margin-top: 10px; border-radius: 3px;
+        }
+
+        .quick-prompts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .quick-prompts button {
+            background: var(--panel-2); border: 1px solid var(--border);
+            color: var(--muted); padding: 6px 12px; border-radius: 14px;
+            font-size: 11px; cursor: pointer; font-family: inherit;
+        }
+        .quick-prompts button:hover { color: var(--accent); border-color: var(--accent); }
+
+        /* Setup form */
+        .form-row {
+            display: grid; grid-template-columns: 200px 1fr;
+            gap: 12px 18px; margin-bottom: 14px; align-items: center;
+        }
+        .form-row label {
+            font-size: 11px; color: var(--muted);
+            letter-spacing: 0.12em; text-transform: uppercase;
+        }
+        .toggle {
+            display: inline-flex; align-items: center; gap: 8px;
+            cursor: pointer; user-select: none;
+        }
+        .toggle input { width: auto; }
+
+        .danger-banner {
+            background: rgba(239,68,68,0.1); border: 1px solid var(--err);
+            border-radius: 4px; padding: 10px 14px; margin-bottom: 14px;
+            font-size: 12px; color: #fca5a5;
+        }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <h1>🤖 AI Analyst</h1>
+    <div>
+        <span class="session-info">Signed in as <strong>{{ current_user }}</strong></span>
+        &nbsp;·&nbsp;
+        <a class="logout-btn" href="{{ url_for('logout') }}">Logout</a>
+    </div>
+</div>
+
+<nav class="main-nav">
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('incidents') }}">Incidents</a>
+    <a href="{{ url_for('ai_analyst') }}" class="active">🤖 AI Analyst</a>
+</nav>
+
+<div class="status-row">
+    <div class="status-card">
+        <div class="label">Ollama</div>
+        <div class="value {% if status.online %}online{% else %}offline{% endif %}">
+            <span class="dot {% if status.online %}ok{% else %}err{% endif %}"></span>
+            {% if status.online %}Online{% else %}Offline{% endif %}
+        </div>
+    </div>
+    <div class="status-card">
+        <div class="label">Active Model</div>
+        <div class="value">{{ status.active_model }}</div>
+    </div>
+    <div class="status-card">
+        <div class="label">Models Available</div>
+        <div class="value">{{ status.models|length }}</div>
+    </div>
+    <div class="status-card">
+        <div class="label">Alerts Loaded</div>
+        <div class="value">{{ alerts|length }}</div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<div class="tab-nav">
+    <button class="tab-btn active" data-tab="analyze">Analyze Event</button>
+    <button class="tab-btn" data-tab="triage">Auto-Triage</button>
+    <button class="tab-btn" data-tab="intel">Threat Intel</button>
+    <button class="tab-btn" data-tab="correlate">Correlation</button>
+    <button class="tab-btn" data-tab="rules">Rule Generator</button>
+    <button class="tab-btn" data-tab="chat">AI Chat</button>
+    <button class="tab-btn" data-tab="setup">⚙ Setup</button>
+</div>
+
+<!-- ============== ANALYZE EVENT ============== -->
+<div class="tab-panel active" id="tab-analyze">
+    <h2>Analyze a single incident</h2>
+    <p style="color: var(--muted); font-size: 13px; margin-top: 0;">
+        Pick an incident, then run analysis, generate a remediation script, or draft an incident report.
+    </p>
+
+    <label style="font-size:11px; color:var(--muted); letter-spacing:0.12em; text-transform:uppercase;">Incident</label>
+    <select id="incident-select">
+        <option value="">— Select an incident —</option>
+        {% for a in alerts %}
+         <option value="{{ loop.index0 }}"
+            {% if preselected and preselected.timestamp == a.timestamp and preselected.host == a.host and preselected.event == a.event %}selected{% endif %}>
+            [{{ a.timestamp }}] {{ a.host }} — {{ (a.event or '')[:80] }}
+         </option>
+        {% endfor %}
+    </select>
+
+    <div style="margin-top: 14px;">
+        <button class="btn" id="btn-analyze">⚡ Analyze with AI</button>
+        <button class="btn btn-secondary" id="btn-remediation">🔧 Remediation Script</button>
+        <button class="btn btn-secondary" id="btn-report">📄 Incident Report</button>
+    </div>
+
+    <div id="analyze-result"></div>
+</div>
+
+<!-- ============== AUTO-TRIAGE ============== -->
+<div class="tab-panel" id="tab-triage">
+    <h2>Auto-Triage all current alerts</h2>
+    <p style="color: var(--muted); font-size: 13px; margin-top: 0;">
+        Sends every active alert to the AI for prioritization and pattern detection.
+    </p>
+    <button class="btn btn-purple" id="btn-triage">🚦 Run Auto-Triage on {{ alerts|length }} alert(s)</button>
+    <div id="triage-result"></div>
+</div>
+
+<!-- ============== THREAT INTEL ============== -->
+<div class="tab-panel" id="tab-intel">
+    <h2>Threat Intelligence Lookup</h2>
+    <p style="color: var(--muted); font-size: 13px; margin-top: 0;">
+        Extracts indicators (IPs, processes, files) from the selected incident and gets reasoning-based threat context.
+    </p>
+    <div class="info-box">
+        💡 This is AI-reasoning intel only. For live IOC lookups, wire up VirusTotal / AbuseIPDB / OTX in <code>app.py</code> → <code>build_threat_intel_prompt</code>.
+    </div>
+
+    <label style="font-size:11px; color:var(--muted); letter-spacing:0.12em; text-transform:uppercase;">Incident</label>
+    <select id="intel-select">
+        <option value="">— Select an incident —</option>
+        {% for a in alerts %}
+        <option value="{{ loop.index0 }}">
+            [{{ a.timestamp }}] {{ a.host }} — {{ (a.event or '')[:80] }}
+        </option>
+        {% endfor %}
+    </select>
+
+    <div style="margin-top: 14px;">
+        <button class="btn" id="btn-intel">🔍 Run Threat Intel</button>
+    </div>
+    <div id="intel-result"></div>
+</div>
+
+<!-- ============== CORRELATION ============== -->
+<div class="tab-panel" id="tab-correlate">
+    <h2>Event Correlation</h2>
+    <p style="color: var(--muted); font-size: 13px; margin-top: 0;">
+        Picks a base event, finds candidate related events (same host/user/dst-IP), and asks the AI to determine if they're part of the same attack chain.
+    </p>
+
+    <label style="font-size:11px; color:var(--muted); letter-spacing:0.12em; text-transform:uppercase;">Base event</label>
+    <select id="correlate-select">
+        <option value="">— Select a base event —</option>
+        {% for a in alerts %}
+        <option value="{{ loop.index0 }}">
+            [{{ a.timestamp }}] {{ a.host }} — {{ (a.event or '')[:80] }}
+        </option>
+        {% endfor %}
+    </select>
+
+    <div style="margin-top: 14px;">
+        <button class="btn btn-purple" id="btn-correlate">🔗 Find Attack Chain</button>
+    </div>
+    <div id="correlate-result"></div>
+</div>
+
+<!-- ============== RULE GENERATOR ============== -->
+<div class="tab-panel" id="tab-rules">
+    <h2>Detection Rule Generator</h2>
+    <p style="color: var(--muted); font-size: 13px; margin-top: 0;">
+        Generates a Sigma or Wazuh detection rule that would catch similar events.
+    </p>
+
+    <label style="font-size:11px; color:var(--muted); letter-spacing:0.12em; text-transform:uppercase;">Source incident</label>
+    <select id="rule-select">
+        <option value="">— Select an incident —</option>
+        {% for a in alerts %}
+        <option value="{{ loop.index0 }}">
+            [{{ a.timestamp }}] {{ a.host }} — {{ (a.event or '')[:80] }}
+        </option>
+        {% endfor %}
+    </select>
+
+    <div style="margin-top: 12px;">
+        <label style="font-size:11px; color:var(--muted); letter-spacing:0.12em; text-transform:uppercase;">Rule format</label>
+        <select id="rule-format" style="max-width: 200px;">
+            <option value="Sigma">Sigma</option>
+            <option value="Wazuh">Wazuh</option>
+        </select>
+    </div>
+
+    <div style="margin-top: 14px;">
+        <button class="btn" id="btn-rule">📝 Generate Rule</button>
+    </div>
+    <div id="rule-result"></div>
+</div>
+
+<!-- ============== AI CHAT ============== -->
+<div class="tab-panel" id="tab-chat">
+    <h2>Chat with the AI Analyst</h2>
+    <p style="color: var(--muted); font-size: 13px; margin-top: 0;">
+        The AI has context of the {{ alerts|length }} most recent alerts.
+    </p>
+
+    <div class="quick-prompts">
+        <button data-prompt="What are the most critical threats right now?">Most critical right now?</button>
+        <button data-prompt="Are there any patterns or correlations across the current alerts?">Find patterns</button>
+        <button data-prompt="What should I investigate first?">Where do I start?</button>
+        <button data-prompt="Summarize the SOC state in three sentences.">3-sentence summary</button>
+    </div>
+
+    <div class="chat-window" id="chat-window">
+        <div class="chat-msg assistant">
+            <div class="role">Assistant</div>
+            <div>Hi — I'm your AI analyst. Ask me about the current alerts.</div>
+        </div>
+    </div>
+
+    <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Ask anything about your alerts..." />
+        <button class="btn" id="btn-chat-send">Send</button>
+    </div>
+</div>
+
+<!-- ============== SETUP ============== -->
+<div class="tab-panel" id="tab-setup">
+    <h2>Configuration</h2>
+    <p style="color: var(--muted); font-size: 13px; margin-top: 0;">
+        Runtime config. Changes save to <code>config.json</code>.
+    </p>
+
+    {% if config.execute_enabled %}
+    <div class="danger-banner">
+        ⚠ <strong>Active Response Execution is ENABLED.</strong> Approved commands will be executed against this Windows host. Use with extreme care.
+    </div>
+    {% endif %}
+
+    <h3>Ollama</h3>
+    <div class="form-row">
+        <label>Active model</label>
+        <select id="cfg-model">
+            {% for m in status.models %}
+            <option value="{{ m }}" {% if m == config.ollama_model %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+            {% if config.ollama_model not in status.models %}
+            <option value="{{ config.ollama_model }}" selected>{{ config.ollama_model }} (not pulled)</option>
+            {% endif %}
+        </select>
+    </div>
+    <div class="form-row">
+        <label>Ollama URL</label>
+        <input type="url" id="cfg-url" value="{{ config.ollama_url }}">
+    </div>
+    <div class="form-row">
+        <label>Timeout (seconds)</label>
+        <input type="number" id="cfg-timeout" value="{{ config.ollama_timeout }}" min="10" max="600">
+    </div>
+
+    <h3>Alerts</h3>
+    <div class="form-row">
+        <label>Default range (seconds)</label>
+        <input type="number" id="cfg-range" value="{{ config.default_alert_range }}" min="60" max="86400">
+    </div>
+
+    <h3>Active Response</h3>
+    <div class="form-row">
+        <label>Execute approved commands</label>
+        <label class="toggle">
+            <input type="checkbox" id="cfg-execute" {% if config.execute_enabled %}checked{% endif %}>
+            <span>Enable real execution (allowlist enforced)</span>
+        </label>
+    </div>
+
+    <div style="margin-top: 18px;">
+        <button class="btn" id="btn-save-config">💾 Save Config</button>
+        <button class="btn btn-secondary" id="btn-test">🔌 Test Connections</button>
+    </div>
+    <div id="setup-result"></div>
+
+    <h3 style="margin-top: 24px;">Available models</h3>
+    {% if status.models %}
+    <div class="result-box">
+        {% for m in status.models %}<div>• {{ m }}{% if m == config.ollama_model %} <span style="color: var(--accent)">← active</span>{% endif %}</div>{% endfor %}
+    </div>
+    {% else %}
+    <div class="info-box">
+        No models pulled or Ollama is offline. Run <code>ollama pull llama3.1</code> on the host.
+    </div>
+    {% endif %}
+</div>
+
+<!-- Hidden data -->
+<script id="incidents-data" type="application/json">{{ alerts|tojson }}</script>
+{% if preselected %}
+<script id="preselected-data" type="application/json">{{ preselected|tojson }}</script>
+{% endif %}
+<script id="config-data" type="application/json">{{ config|tojson }}</script>
+
+<script>
+// Data
+const incidents = JSON.parse(document.getElementById('incidents-data').textContent);
+const preselectedEl = document.getElementById('preselected-data');
+const preselected = preselectedEl ? JSON.parse(preselectedEl.textContent) : null;
+const initialConfig = JSON.parse(document.getElementById('config-data').textContent);
+const chatHistory = [];
+
+// Tabs
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+});
+
+// Helpers
+function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function showLoading(id, msg) {
+    document.getElementById(id).innerHTML =
+        `<div class="result-box"><div class="loading">${escapeHtml(msg)}</div></div>`;
+}
+function showError(id, msg) {
+    document.getElementById(id).innerHTML =
+        `<div class="error-box">⚠ ${escapeHtml(msg)}</div>`;
+}
+function pickIncident(selectId, allowPreselect) {
+    const sel = document.getElementById(selectId);
+    const idx = sel.value;
+    if (idx === '' && allowPreselect && preselected) return preselected;
+    if (idx === '') return null;
+    return incidents[parseInt(idx)];
+}
+
+// =========== ANALYZE ============
+function renderAnalysis(a, incident) {
+    const sevClass = 'sev-' + (a.severity || 'Medium');
+    const steps = (a.recommended_steps || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+    const responses = (a.suggested_active_response || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+    const cmd = a.suggested_command || '';
+    window._lastIncident = incident;
+    window._lastCommand = cmd;
+
+    const cmdBlock = cmd ? `
+        <h3>Suggested command</h3>
+        <div class="cmd-row">
+            <code id="cmd-text">${escapeHtml(cmd)}</code>
+            <button class="copy-btn" onclick="copyCommand()">Copy</button>
+        </div>
+        <div class="action-row">
+            <button class="btn approve" onclick="approveCommand()">✓ Approve</button>
+            <button class="btn reject" onclick="rejectCommand()">✗ Reject</button>
+        </div>
+        <div id="exec-result"></div>
+    ` : '';
+
+    return `
+        <div class="result-box">
+            <h2>${escapeHtml(a.incident_title || 'Analysis')}</h2>
+            <div class="analysis-grid">
+                <div class="k">Severity</div>
+                <div class="v"><span class="severity-pill ${sevClass}">${escapeHtml(a.severity || '?')}</span></div>
+                <div class="k">Confidence</div>
+                <div class="v">${escapeHtml(a.confidence || '?')}</div>
+                <div class="k">Attack type</div>
+                <div class="v">${escapeHtml(a.possible_attack_type || '—')}</div>
+                <div class="k">MITRE tactic</div>
+                <div class="v">${escapeHtml(a.mitre_tactic || '—')}</div>
+            </div>
+            <h3>Summary</h3><div>${escapeHtml(a.summary || '')}</div>
+            <h3>Why it matters</h3><div>${escapeHtml(a.why_it_matters || '')}</div>
+            <h3>Recommended investigation steps</h3>
+            <ul class="steps">${steps || '<li>None</li>'}</ul>
+            <h3>Suggested active response</h3>
+            <ul class="steps">${responses || '<li>None</li>'}</ul>
+            ${cmdBlock}
+        </div>
+    `;
+}
+
+function copyCommand() {
+    const txt = document.getElementById('cmd-text').textContent;
+    navigator.clipboard.writeText(txt).then(() => {
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+    });
+}
+
+async function approveCommand() {
+    const out = document.getElementById('exec-result');
+    out.innerHTML = '<div class="result-box"><span class="loading">Submitting approval</span></div>';
+    try {
+        const r = await fetch('/api/approve', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({command: window._lastCommand, incident: window._lastIncident})
+        });
+        const data = await r.json();
+        if (data.executed) {
+            out.innerHTML = `<div class="result-box"><h3>✓ Executed</h3><pre>${escapeHtml(JSON.stringify(data.result, null, 2))}</pre></div>`;
+        } else if (data.blocked) {
+            out.innerHTML = `<div class="error-box">🚫 Blocked: ${escapeHtml(data.reason)}</div>`;
+        } else {
+            out.innerHTML = `<div class="info-box">📝 ${escapeHtml(data.message || 'Logged')}</div>`;
+        }
+    } catch (e) {
+        out.innerHTML = `<div class="error-box">⚠ ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+async function rejectCommand() {
+    const out = document.getElementById('exec-result');
+    try {
+        await fetch('/api/reject', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({command: window._lastCommand, incident: window._lastIncident})
+        });
+        out.innerHTML = '<div class="info-box">✗ Rejection logged.</div>';
+    } catch (e) {
+        out.innerHTML = `<div class="error-box">⚠ ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+document.getElementById('btn-analyze').addEventListener('click', async () => {
+    const incident = pickIncident('incident-select', true);
+    if (!incident) { showError('analyze-result', 'Select an incident first.'); return; }
+    showLoading('analyze-result', 'Analyzing incident with local AI');
+    try {
+        const r = await fetch('/api/analyze', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(incident)
+        });
+        const data = await r.json();
+        if (!r.ok) { showError('analyze-result', data.error || 'Failed.'); return; }
+        document.getElementById('analyze-result').innerHTML = renderAnalysis(data.analysis, incident);
+    } catch (e) { showError('analyze-result', e.message); }
+});
+
+document.getElementById('btn-remediation').addEventListener('click', async () => {
+    const incident = pickIncident('incident-select', true);
+    if (!incident) { showError('analyze-result', 'Select an incident first.'); return; }
+    showLoading('analyze-result', 'Generating remediation script');
+    try {
+        const r = await fetch('/api/remediation', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(incident)
+        });
+        const data = await r.json();
+        if (!r.ok) { showError('analyze-result', data.error || 'Failed.'); return; }
+        document.getElementById('analyze-result').innerHTML =
+            `<div class="result-box"><h3>Remediation script</h3><pre>${escapeHtml(data.script)}</pre></div>`;
+    } catch (e) { showError('analyze-result', e.message); }
+});
+
+document.getElementById('btn-report').addEventListener('click', async () => {
+    const incident = pickIncident('incident-select', true);
+    if (!incident) { showError('analyze-result', 'Select an incident first.'); return; }
+    showLoading('analyze-result', 'Drafting incident report');
+    try {
+        const r = await fetch('/api/report', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(incident)
+        });
+        const data = await r.json();
+        if (!r.ok) { showError('analyze-result', data.error || 'Failed.'); return; }
+        document.getElementById('analyze-result').innerHTML =
+            `<div class="result-box"><h3>Incident report</h3><pre>${escapeHtml(data.report)}</pre></div>`;
+    } catch (e) { showError('analyze-result', e.message); }
+});
+
+// =========== AUTO-TRIAGE ============
+document.getElementById('btn-triage').addEventListener('click', async () => {
+    showLoading('triage-result', 'Running auto-triage');
+    try {
+        const r = await fetch('/api/auto-triage', {method: 'POST'});
+        const data = await r.json();
+        if (!r.ok) { showError('triage-result', data.error || 'Failed.'); return; }
+        document.getElementById('triage-result').innerHTML =
+            `<div class="result-box"><h3>Triage briefing (${data.alert_count} alerts)</h3><pre>${escapeHtml(data.triage)}</pre></div>`;
+    } catch (e) { showError('triage-result', e.message); }
+});
+
+// =========== THREAT INTEL ============
+document.getElementById('btn-intel').addEventListener('click', async () => {
+    const incident = pickIncident('intel-select', false);
+    if (!incident) { showError('intel-result', 'Select an incident first.'); return; }
+    showLoading('intel-result', 'Looking up threat intelligence');
+    try {
+        const r = await fetch('/api/threat-intel', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(incident)
+        });
+        const data = await r.json();
+        if (!r.ok) { showError('intel-result', data.error || 'Failed.'); return; }
+        document.getElementById('intel-result').innerHTML =
+            `<div class="result-box"><h3>Threat intelligence</h3><pre>${escapeHtml(data.intel)}</pre></div>`;
+    } catch (e) { showError('intel-result', e.message); }
+});
+
+// =========== CORRELATION ============
+document.getElementById('btn-correlate').addEventListener('click', async () => {
+    const incident = pickIncident('correlate-select', false);
+    if (!incident) { showError('correlate-result', 'Select a base event first.'); return; }
+    showLoading('correlate-result', 'Searching for related events and analyzing chain');
+    try {
+        const r = await fetch('/api/correlate', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(incident)
+        });
+        const data = await r.json();
+        if (!r.ok) { showError('correlate-result', data.error || 'Failed.'); return; }
+        document.getElementById('correlate-result').innerHTML =
+            `<div class="result-box"><h3>Correlation analysis (${data.related_count} candidate(s))</h3><pre>${escapeHtml(data.correlation)}</pre></div>`;
+    } catch (e) { showError('correlate-result', e.message); }
+});
+
+// =========== RULE GENERATOR ============
+document.getElementById('btn-rule').addEventListener('click', async () => {
+    const incident = pickIncident('rule-select', false);
+    if (!incident) { showError('rule-result', 'Select an incident first.'); return; }
+    const fmt = document.getElementById('rule-format').value;
+    showLoading('rule-result', `Generating ${fmt} rule`);
+    try {
+        const r = await fetch('/api/rule-generator', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({incident: incident, format: fmt})
+        });
+        const data = await r.json();
+        if (!r.ok) { showError('rule-result', data.error || 'Failed.'); return; }
+        document.getElementById('rule-result').innerHTML =
+            `<div class="result-box"><h3>${escapeHtml(data.format)} rule</h3><pre>${escapeHtml(data.rule)}</pre></div>`;
+    } catch (e) { showError('rule-result', e.message); }
+});
+
+// =========== CHAT ============
+function appendChat(role, content) {
+    const win = document.getElementById('chat-window');
+    const div = document.createElement('div');
+    div.className = 'chat-msg ' + role;
+    div.innerHTML = `<div class="role">${role}</div><div></div>`;
+    div.querySelector('div:last-child').textContent = content;
+    win.appendChild(div);
+    win.scrollTop = win.scrollHeight;
+    return div;
+}
+
+async function sendChat(message) {
+    if (!message.trim()) return;
+    appendChat('user', message);
+    chatHistory.push({role: 'user', content: message});
+    const placeholder = appendChat('assistant', '');
+    placeholder.querySelector('div:last-child').innerHTML = '<span class="loading">Thinking</span>';
+    try {
+        const r = await fetch('/api/chat', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message, history: chatHistory.slice(0, -1)})
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            placeholder.querySelector('div:last-child').textContent = '⚠ ' + (data.error || 'Failed.');
+            return;
+        }
+        placeholder.querySelector('div:last-child').textContent = data.reply;
+        chatHistory.push({role: 'assistant', content: data.reply});
+    } catch (e) {
+        placeholder.querySelector('div:last-child').textContent = '⚠ ' + e.message;
+    }
+}
+
+document.getElementById('btn-chat-send').addEventListener('click', () => {
+    const input = document.getElementById('chat-input');
+    const msg = input.value;
+    input.value = '';
+    sendChat(msg);
+});
+document.getElementById('chat-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('btn-chat-send').click();
+});
+document.querySelectorAll('.quick-prompts button').forEach(b => {
+    b.addEventListener('click', () => sendChat(b.dataset.prompt));
+});
+
+// =========== SETUP ============
+document.getElementById('btn-save-config').addEventListener('click', async () => {
+    const out = document.getElementById('setup-result');
+    out.innerHTML = '<div class="result-box"><span class="loading">Saving</span></div>';
+    const body = {
+        ollama_model: document.getElementById('cfg-model').value,
+        ollama_url: document.getElementById('cfg-url').value,
+        ollama_timeout: parseInt(document.getElementById('cfg-timeout').value),
+        default_alert_range: parseInt(document.getElementById('cfg-range').value),
+        execute_enabled: document.getElementById('cfg-execute').checked,
+    };
+    try {
+        const r = await fetch('/api/config', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        const data = await r.json();
+        if (data.ok) {
+            out.innerHTML = '<div class="result-box" style="color: var(--ok);">✓ Saved. Reload to see all changes.</div>';
+        } else {
+            out.innerHTML = '<div class="error-box">Save failed.</div>';
+        }
+    } catch (e) {
+        out.innerHTML = `<div class="error-box">⚠ ${escapeHtml(e.message)}</div>`;
+    }
+});
+
+document.getElementById('btn-test').addEventListener('click', async () => {
+    const out = document.getElementById('setup-result');
+    out.innerHTML = '<div class="result-box"><span class="loading">Testing</span></div>';
+    try {
+        const r = await fetch('/api/test-connections');
+        const data = await r.json();
+        const gOk = data.graylog ? '✓ Graylog connected' : '✗ Graylog unreachable';
+        const oOk = data.ollama.online
+            ? `✓ Ollama online — ${data.ollama.models.length} model(s)`
+            : '✗ Ollama offline';
+        out.innerHTML = `<div class="result-box"><div>${gOk}</div><div>${oOk}</div></div>`;
+    } catch (e) {
+        out.innerHTML = `<div class="error-box">⚠ ${escapeHtml(e.message)}</div>`;
+    }
+});
+
+// On load: auto-analyze if preselected
+if (preselected) {
+    document.getElementById('btn-analyze').click();
+}
+</script>
+
+</body>
+</html>

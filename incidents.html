@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Incidents — SIEM</title>
+
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #e5e7eb;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1 { color: #38bdf8; margin: 0; }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+        .session-info { font-size: 13px; color: #94a3b8; }
+        .session-info strong { color: #e5e7eb; }
+        .logout-btn {
+            display: inline-block; padding: 6px 14px;
+            background-color: #1e293b; color: #38bdf8;
+            border: 1px solid #334155; border-radius: 4px;
+            text-decoration: none; font-size: 12px;
+        }
+        .logout-btn:hover { border-color: #38bdf8; }
+
+        .main-nav {
+            display: flex; gap: 6px; margin-bottom: 18px;
+            border-bottom: 1px solid #334155;
+        }
+        .main-nav a {
+            padding: 9px 18px; color: #94a3b8;
+            text-decoration: none; font-size: 13px;
+            border-bottom: 2px solid transparent; margin-bottom: -1px;
+        }
+        .main-nav a:hover { color: #e5e7eb; }
+        .main-nav a.active {
+            color: #38bdf8; border-bottom-color: #38bdf8;
+        }
+
+        .table-container {
+            overflow-x: auto; margin-top: 10px; border-radius: 10px;
+        }
+        table {
+            width: 100%; border-collapse: collapse; min-width: 1000px;
+        }
+        th {
+            background-color: #1e293b; color: #38bdf8;
+            padding: 10px; text-align: left;
+        }
+        td {
+            padding: 10px; border-bottom: 1px solid #334155;
+            font-size: 13px; word-break: break-word;
+        }
+        tr:hover { background-color: #1e293b; }
+
+        .sev-high   { color: #ef4444; font-weight: bold; }
+        .sev-medium { color: #f59e0b; font-weight: bold; }
+        .sev-low    { color: #22c55e; font-weight: bold; }
+
+        .analyze-form { margin: 0; }
+        .analyze-btn {
+            background-color: transparent;
+            color: #a78bfa;
+            border: 1px solid #4c1d95;
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-family: inherit;
+        }
+        .analyze-btn:hover {
+            background-color: #4c1d95;
+            color: #ede9fe;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="topbar">
+    <h1>🚨 Incidents</h1>
+    <div>
+        <span class="session-info">Signed in as <strong>{{ current_user }}</strong></span>
+        &nbsp;·&nbsp;
+        <a class="logout-btn" href="{{ url_for('logout') }}">Logout</a>
+    </div>
+</div>
+
+<nav class="main-nav">
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('incidents') }}" class="active">Incidents</a>
+    <a href="{{ url_for('ai_analyst') }}">🤖 AI Analyst</a>
+</nav>
+
+<div class="table-container">
+<table>
+    <tr>
+        <th>Time</th>
+        <th>Host</th>
+        <th>User</th>
+        <th>Event</th>
+        <th>Severity</th>
+        <th>Process</th>
+        <th>AI</th>
+    </tr>
+
+    {% for alert in alerts %}
+    <tr>
+        <td>{{ alert.timestamp }}</td>
+        <td>{{ alert.host }}</td>
+        <td>{{ alert.user }}</td>
+        <td title="{{ alert.event }}">
+            {{ (alert.event or '')[:60] }}{% if alert.event and alert.event|length > 60 %}...{% endif %}
+        </td>
+        <td>
+            {% set s = (alert.severity|int) %}
+            {% if s >= 10 %}<span class="sev-high">{{ alert.severity }}</span>
+            {% elif s >= 5 %}<span class="sev-medium">{{ alert.severity }}</span>
+            {% else %}<span class="sev-low">{{ alert.severity }}</span>{% endif %}
+        </td>
+        <td>{{ alert.process }}</td>
+        <td>
+            <form class="analyze-form" method="POST" action="{{ url_for('ai_analyst') }}">
+                <input type="hidden" name="timestamp"       value="{{ alert.timestamp }}">
+                <input type="hidden" name="host"            value="{{ alert.host }}">
+                <input type="hidden" name="user"            value="{{ alert.user }}">
+                <input type="hidden" name="event"           value="{{ alert.event }}">
+                <input type="hidden" name="severity"        value="{{ alert.severity }}">
+                <input type="hidden" name="process"         value="{{ alert.process }}">
+                <input type="hidden" name="command_line"    value="{{ alert.command_line }}">
+                <input type="hidden" name="src_ip"          value="{{ alert.src_ip }}">
+                <input type="hidden" name="dst_ip"          value="{{ alert.dst_ip }}">
+                <input type="hidden" name="dst_port"        value="{{ alert.dst_port }}">
+                <input type="hidden" name="event_id"        value="{{ alert.event_id }}">
+                <input type="hidden" name="target_filename" value="{{ alert.target_filename }}">
+                <button type="submit" class="analyze-btn">Analyze</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+</div>
+
+</body>
+</html>
