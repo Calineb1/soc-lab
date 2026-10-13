@@ -1,39 +1,100 @@
-# SOC Fortress Custom Dashboard
+# SOC Fortress — SIEM Monitoring & Incident Analysis Platform
 
-Custom Windows dashboard for Graylog SIEM with a local-AI analyst (Ollama).
+A SOC-oriented security monitoring platform integrating **Wazuh SIEM**, **Graylog**, **OpenSearch**, and a custom **Flask-based dashboard** for centralized security event visualization and incident investigation.
 
-## Pages
+The platform simulates a Security Operations Center workflow by collecting endpoint events, processing security alerts, visualizing incidents, and supporting analyst investigation workflows.
 
-| Route | What it does |
+Optional local AI-assisted analysis features are integrated using **Ollama** to assist with alert interpretation, incident summaries, and remediation recommendations.
+
+---
+
+## Features
+
+### Security Monitoring Dashboard
+
+The dashboard provides:
+
+- Security event visualization
+- Severity distribution
+- Event trends
+- Monitored hosts overview
+- MITRE ATT&CK tactic visualization
+- Recent security alerts
+- Incident investigation workflow
+
+---
+
+## Application Pages
+
+| Route | Description |
 |---|---|
 | `/login` | Session-based authentication |
-| `/dashboard` | KPI cards, severity donut, event trend, top hosts, MITRE tactics, recent alerts |
-| `/incidents` | Live alert table from Graylog with per-row "Analyze" → AI page |
-| `/ai-analyst` | 7-tab analyst workbench (see below) |
+| `/dashboard` | Security monitoring overview and analytics |
+| `/incidents` | Alert investigation interface |
+| `/ai-analyst` | Optional AI-assisted security analysis workspace |
 
-## AI Analyst tabs
+---
 
-1. **Analyze Event** — Pick an incident → AI returns JSON: title, severity pill, MITRE tactic, summary, why-it-matters, investigation steps, suggested response, copyable command, Approve/Reject buttons. Plus one-click **Remediation Script** (PowerShell) and **Incident Report** (markdown).
-2. **Auto-Triage** — Sends every active alert to AI, returns prioritized briefing with patterns and recommended order.
-3. **Threat Intel** — Extracts indicators from an incident (IPs, processes, files, command lines), AI provides reasoning-based reputation and enrichment guidance.
-4. **Correlation** — Picks a base event, finds candidate related events (same host/user/dst-IP/process), AI determines if they're an attack chain.
-5. **Rule Generator** — Generates Sigma or Wazuh detection rule from an incident.
-6. **AI Chat** — Free-form chat with current alert context injected into system prompt.
-7. **Setup** — Switch active model, change Ollama URL/timeout, toggle execution mode, test connections.
+## AI-Assisted Analyst Features
 
-## File map
+The AI module is designed as an assistant for security analysts and includes:
+
+### Incident Analysis
+- Security event explanation
+- Severity assessment
+- MITRE ATT&CK mapping
+- Investigation recommendations
+- Remediation suggestions
+
+### Auto-Triage
+- Alert prioritization
+- Detection of potential patterns
+- Investigation guidance
+
+### Threat Analysis Support
+- Extraction of security indicators
+- Analysis of processes, IPs, files, and command lines
+- Investigation assistance
+
+### Detection Rule Generation
+- Sigma rule generation
+- Wazuh detection rule suggestions
+
+### Incident Documentation
+- Incident report generation
+- Investigation notes
+
+> AI-generated results are designed to assist analysts and require human validation.
+
+---
+
+# Architecture Overview
+
+The platform integrates:
+
+- **Wazuh** — Endpoint monitoring and detection
+- **Graylog** — Centralized log management and analysis
+- **OpenSearch** — Log indexing and storage
+- **Sysmon** — Windows endpoint telemetry
+- **Fluent Bit** — Log forwarding pipeline
+- **Flask** — Dashboard backend
+- **Ollama** — Local AI inference
+
+---
+
+# Project Structure
 
 ```
 SOCDashboard/
-├── app.py                     # Flask backend
-├── requirements.txt           # Python deps
-├── deploy_windows.ps1         # Windows deployment automation
-├── README.md                  # This file
-├── .env                       # (auto-generated) secrets
-├── config.json                # (auto-generated) runtime settings
-├── data/                      # (auto-generated)
-│   ├── execution_log.jsonl    # All commands actually run
-│   └── approvals.jsonl        # Approve/reject audit trail
+├── app.py
+├── requirements.txt
+├── deploy_windows.ps1
+├── README.md
+├── .env
+├── config.json
+├── data/
+│   ├── execution_log.jsonl
+│   └── approvals.jsonl
 └── templates/
     ├── login.html
     ├── dashboard.html
@@ -41,128 +102,161 @@ SOCDashboard/
     └── ai_analyst.html
 ```
 
-## Quick start (Windows)
+---
 
-1. Drop all files into one folder on the Windows machine (172.20.10.4).
-2. Open **PowerShell as Administrator** in that folder.
-3. Allow scripts for this session if needed:
-   ```powershell
-   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-   ```
-4. Run:
-   ```powershell
-   .\deploy_windows.ps1
-   ```
-   The script will:
-   - Verify Python ≥ 3.9
-   - Copy files to `C:\SOCDashboard`
-   - Create venv and install deps
-   - Generate `.env` with strong `FLASK_SECRET_KEY` and a random admin password (printed once)
-   - Open inbound TCP 5000 in Windows Firewall
-   - Pull `llama3.1` from Ollama (if Ollama is installed)
-   - Create `start_dashboard.bat` and a desktop shortcut
-5. Start the dashboard via the desktop shortcut, or:
-   ```
-   C:\SOCDashboard\start_dashboard.bat
-   ```
-6. Open `http://localhost:5000` (or `http://172.20.10.4:5000` from the LAN).
+# Installation (Windows)
 
-### Deploy script flags
+## Automated Deployment
+
+Run PowerShell as Administrator:
 
 ```powershell
-# Custom install location
-.\deploy_windows.ps1 -InstallDir D:\SOC
-
-# Different Ollama model
-.\deploy_windows.ps1 -OllamaModel qwen2.5:7b
-
-# Set admin password explicitly
-.\deploy_windows.ps1 -AdminPassword "MyStrongPass!"
-
-# Auto-start at boot via scheduled task
-.\deploy_windows.ps1 -InstallAsService
-
-# Skip firewall rule (e.g. if managed by GPO)
-.\deploy_windows.ps1 -SkipFirewall
-
-# Skip Ollama entirely
-.\deploy_windows.ps1 -OllamaModel none
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
-## Manual run (no deploy script)
+Execute:
+
+```powershell
+.\deploy_windows.ps1
+```
+
+The deployment script:
+
+- Checks Python requirements
+- Creates a virtual environment
+- Installs dependencies
+- Generates configuration files
+- Configures local deployment settings
+- Creates startup utilities
+
+---
+
+## Manual Installation
+
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
+```
+
+Run the application:
+
+```bash
 python app.py
 ```
 
-Defaults: `0.0.0.0:5000`, debug on, hardcoded admin/`ChangeMe123!`. Fix those for anything beyond local dev.
+The dashboard will start on:
 
-## Configuration
+```
+http://localhost:5000
+```
 
-Two layers, in priority order:
+---
 
-1. **Environment variables** (highest) — read at startup. Useful keys:
-   - `FLASK_SECRET_KEY` — session signing key
-   - `ADMIN_PASSWORD` — login password for `admin`
-   - `PORT` — default 5000
-   - `FLASK_DEBUG` — `0` for prod, `1` for dev
-   - `SOC_OLLAMA_MODEL`, `SOC_OLLAMA_URL`, `SOC_GRAYLOG_USER`, etc.
+# Configuration
 
-2. **`config.json`** — runtime-editable via the Setup tab:
-   - `ollama_model`, `ollama_url`, `ollama_timeout`
-   - `default_alert_range`
-   - `execute_enabled`
+Configuration can be managed through:
 
-Graylog credentials currently live as defaults in `app.py` (`graylog_user`, `graylog_pass`). Move those to env vars before going beyond the lab.
+## Environment Variables
 
-## Active Response — execution model
+Examples:
 
-The Approve button next to an AI-suggested command behaves differently depending on `execute_enabled`:
+```
+FLASK_SECRET_KEY
+ADMIN_PASSWORD
+PORT
+FLASK_DEBUG
+SOC_OLLAMA_MODEL
+SOC_OLLAMA_URL
+```
+
+## Runtime Configuration
+
+The dashboard supports configuration through:
+
+```
+config.json
+```
+
+including:
+
+- AI model selection
+- Ollama connection settings
+- Alert filtering range
+- Execution mode
+
+---
+
+# Active Response Safety Model
+
+The platform includes an optional command approval workflow.
+
+Two modes are available:
 
 | Mode | Behavior |
 |---|---|
-| `execute_enabled = false` (default) | Logs to `data/approvals.jsonl`. **No execution.** |
-| `execute_enabled = true` | Validates the command against an allowlist, runs it via `subprocess.run`, captures stdout/stderr, logs to `data/execution_log.jsonl`. |
+| Disabled | Commands are logged but not executed |
+| Enabled | Commands are validated against an allowlist before execution |
 
-The allowlist (in `app.py` → `EXECUTE_ALLOWLIST`) currently permits:
+The goal is to prevent unsafe automated actions and maintain analyst control.
 
-- `netsh advfirewall firewall (add|delete|show) rule …`
-- `taskkill /PID <num> /F` and `taskkill /IM <name> /F`
-- `powershell -Command "Stop-Process -Id <num> -Force"`
-- `powershell -Command "Get-Process"`
+---
 
-A separate `EXECUTE_FORBIDDEN` regex blocks anything matching `format`, `del /f`, `rm -rf`, `shutdown`, `reg delete`, `Remove-Item -Recurse`, etc. — even if it would otherwise match an allow pattern.
+# Security Hardening Recommendations
 
-**Recommendation:** Leave `execute_enabled` off until you've watched several real AI suggestions and verified the allowlist behaves as intended. Then flip it on via the Setup tab.
+Before production deployment:
 
-## Hardening checklist before going beyond the lab
+- Store credentials securely using environment variables
+- Hash user passwords
+- Disable Flask debug mode
+- Deploy behind HTTPS
+- Add CSRF protection
+- Implement rate limiting
+- Configure proper session security
+- Review active response permissions
+- Enable log rotation
 
-- [ ] Hash the admin password (`werkzeug.security.generate_password_hash`)
-- [ ] Move Graylog credentials from `app.py` defaults into env vars
-- [ ] Switch from `app.run(debug=True)` to a production WSGI (waitress on Windows: `pip install waitress`, then `waitress-serve --listen=0.0.0.0:5000 app:app`)
-- [ ] Add HTTPS — either reverse-proxy (nginx/Caddy) or `ssl_context` on Flask with a real cert
-- [ ] Enable `SESSION_COOKIE_SECURE = True` and `SESSION_COOKIE_HTTPONLY = True`
-- [ ] Add CSRF protection (`flask-wtf`) to the login form and the per-row Analyze form
-- [ ] Rate-limit `/login` (`flask-limiter`)
-- [ ] Tighten the active-response allowlist for your specific environment
-- [ ] Set up log rotation on `data/*.jsonl`
+---
 
-## Troubleshooting
+# Technologies Used
 
-**Ollama offline in status card** — Make sure `ollama serve` is running. On Windows it usually auto-starts; check with `Get-Process ollama`.
+## Cybersecurity
 
-**"AI returned invalid JSON"** — Some smaller models drift off the schema. Try a stronger model (`llama3.1:8b` or `qwen2.5:7b`) in Setup.
+- Wazuh
+- Graylog
+- OpenSearch
+- Sysmon
+- MITRE ATT&CK
 
-**Empty alert list** — Confirm Graylog is reachable: `curl -u admin:Kaline1 http://ingest.socfortress.local:9000/api/system`. The Setup tab's "Test Connections" button does the same check.
+## Development
 
-**Slow analysis** — First-run model load takes 10-30s while Ollama warms up. Subsequent calls should be 5-15s on the RTX 4050.
+- Python
+- Flask
+- JavaScript
+- HTML/CSS
+- REST APIs
 
-**Login loops** — Cookie not being set. If running over HTTP and `SESSION_COOKIE_SECURE` is on, browsers will reject the cookie. Keep it off until HTTPS is in place.
+## Infrastructure
 
-## What's not built (yet)
+- Linux
+- Windows
+- Hyper-V virtualization
+- PowerShell
 
-- Live IOC enrichment via VirusTotal / AbuseIPDB / OTX (the Threat Intel tab does AI-only reasoning today). Wire up keys in `app.py` → `build_threat_intel_prompt` to add real lookups.
-- Wazuh API direct integration for true "Active Agents" / "Agents Online" counts. Currently those numbers are derived from unique hostnames in recent Graylog alerts.
-- Multi-user RBAC. There's one admin role.
-- Incident-detail page (`/incidents/:id`). The handoff lists this; current flow goes from incidents row → AI Analyst directly, which covers the same intent.
+---
+
+# Future Improvements
+
+Planned improvements:
+
+- Real IOC enrichment using external threat intelligence APIs
+- Direct Wazuh API integration
+- Role-based access control
+- Advanced incident management workflow
+- Additional detection automation
+
+---
+
+# Project Context
+
+Developed as part of a cybersecurity internship project focused on building a SOC-oriented monitoring environment, integrating security monitoring technologies, and exploring practical incident analysis workflows.
